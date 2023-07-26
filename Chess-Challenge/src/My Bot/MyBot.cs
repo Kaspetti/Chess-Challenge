@@ -95,11 +95,24 @@ public class MyBot : IChessBot
         foreach (var move in moves) {
             board.MakeMove(move);
 
+            var currentScore = CalculateScore(board);
+            var isWinning = (board.IsWhiteToMove && currentScore < 0) || (!board.IsWhiteToMove && currentScore > 0);
+
+            if (board.IsRepeatedPosition() && isWinning) {
+                board.UndoMove(move);
+                continue;
+            }
+
             if (board.IsInCheckmate()) {
                 return move;
             }
 
             var opponentMoves = board.GetLegalMoves();
+            if (opponentMoves.Length == 0 && isWinning) {
+                board.UndoMove(move);
+                continue;
+            }
+
             var worstResponseScore = isWhite ? int.MaxValue : int.MinValue;
             foreach (var opponentMove in opponentMoves) {
                 board.MakeMove(opponentMove);
