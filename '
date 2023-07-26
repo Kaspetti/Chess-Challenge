@@ -68,64 +68,69 @@ public class MyBot : IChessBot
         }},
     };
 
-    private Dictionary<string, int> pieceModifiers = new Dictionary<string, int>() {
-        {"Pawn", 2},
-        {"Bishop", 4},
-        {"Rook", 4},
-        {"Knight", 4},
-        {"Queen", 8},
-        {"King", 10},
-    };
-
     private int depth = 1;
 
     public Move Think(Board board, Timer timer)
     {        
-        return FindBestMove(board);
-    }
-
-    private Move FindBestMove(Board board) { 
         var moves = board.GetLegalMoves();
 
-        var isWhite = board.IsWhiteToMove;
-
         var bestMove = moves[0];
-        var bestScore = isWhite ? int.MinValue : int.MaxValue;
+        var bestScore = 0;
 
         foreach (var move in moves) {
             board.MakeMove(move);
 
             if (board.IsInCheckmate()) {
-                return move;
+                bestMove = move;
+                break;
             }
 
-            var opponentMoves = board.GetLegalMoves();
-            var worstResponseScore = isWhite ? int.MaxValue : int.MinValue;
-            foreach (var opponentMove in opponentMoves) {
-                board.MakeMove(opponentMove);
-                var score = CalculateScore(board);
-                board.UndoMove(opponentMove);
-
-                if (isWhite) {
-                    worstResponseScore = Math.Min(score, worstResponseScore);
-                } else {
-                    worstResponseScore = Math.Max(score, worstResponseScore);
-                }
-            }
-
-            if (isWhite) {
-                if (bestScore < worstResponseScore) {
-                    bestScore = worstResponseScore;
-                    bestMove = move;
-                }
-            } else {
-                if (bestScore > worstResponseScore) {
-                    bestScore = worstResponseScore;
-                    bestMove = move;
-                }
-            }
-
+            var score = CalculateScore(board);
             board.UndoMove(move);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            }
+        }
+
+        return bestMove;
+    }
+
+    private Move FindBestMove(Board board, int maxDepth, int currentDepth = 0, int topScore = 0) { 
+        var moves = board.GetLegalMoves();
+
+        var bestMove = moves[0];
+        var bestScore = 0;
+
+        foreach (var move in moves) {
+            // Make the current player make a move
+            board.MakeMove(move);
+            // Make the opponent play a move
+            board.MakeMove(FindBestMove(board, maxDepth, currentDepth));
+
+            if (currentDepth == maxDepth) {
+                return bestMove;
+            }
+
+            // Make the current player make the next move if the depth is not reached yet
+            //
+
+            var score = CalculateScore(board);
+            
+
+           /*if (board.IsInCheckmate()) {
+               bestMove = move;
+               break;
+           }
+
+            var score = CalculateScore(board);
+            board.UndoMove(move);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            }*/
         }
 
         return bestMove;
@@ -139,13 +144,14 @@ public class MyBot : IChessBot
             var square = new Square(i);
             var piece = board.GetPiece(square);
 
+            var opponentModifier = board.IsWhiteToMove == piece.IsWhite ? -1 : 1;
             var blackModifier = piece.IsWhite ? 1 : 0;
 
             if (piece.PieceType != PieceType.None) {
-                score += (positionPoints[piece.PieceType.ToString()][
+                score += positionPoints[piece.PieceType.ToString()][
                     Math.Abs(square.Rank - (7 * blackModifier)),
                     Math.Abs(square.File - (7 * blackModifier))]
-                + pieceModifiers[piece.PieceType.ToString()]) * (piece.IsWhite ? 1 : -1);
+                * opponentModifier;
             }
         }
 
